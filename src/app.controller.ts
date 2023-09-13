@@ -22,19 +22,23 @@ export class AppController {
     const week = Math.ceil(day / 7);
     const month = currentDate.getMonth();
 
+    // approach 1
+    // Global frequency check 
+    let globalCheck = await this.appService.globalFrequencyCheck(day, week, month, userId)
+
+    // Campaign level frequnc check
+    let campaignCheck = await this.appService.campaignFrequencyCheck(day, week, month, userId, campaignType)
 
 
-    console.log(day)
-    console.log(week)
-    console.log(month)
 
 
+    if (globalCheck && campaignCheck) {
+      console.log('WOW. now we can send mail')
+    }
+    else {
+      console.log('We reached maxium limit')
+    }
 
-    this.appService.globalFrequencyCheck(day, week, month, userId)
-    this.appService.campaignFrequencyCheck(day, week, month, userId, campaignType)
-
-
-    // console.log(await this.redis.get('key1'))
     return this.appService.getHello();
   }
 
