@@ -1,6 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import e from 'express';
 import { REDIS } from './modules/redis/redis.constants';
-
+import * as _ from 'lodash';
 @Injectable()
 export class AppService {
 
@@ -13,6 +14,7 @@ export class AppService {
   getHello(): string {
     return 'Hello World!';
   }
+
 
   async globalFrequencyCheck(day, week, month, userId) {
 
@@ -51,4 +53,82 @@ export class AppService {
     else return false;
 
   }
+
+
+
+
+
+  async frequencyCheck(day, week, month, userIds, campaignType) {
+    let filteredUserIdsList = userIds;
+    for (const userId of userIds) {
+      let frequency = await this.redis.get(`${userId}`);
+      if (!frequency) {
+        frequency = {
+          "G": [[8, 6], [37, 0], [254, 0]], // this row represents global frequency
+          "P": [[8, 0], [37, 0], [254, 0]], // this row represents push frequency
+          "M": [[8, 0], [37, 0], [254, 0]], // this row represents mail frequency
+          "C": [[8, 0], [37, 0], [254, 0]]  // this row represents web frequency
+        };
+        await this.redis.set(`${userId}`, JSON.stringify(frequency), 'ex', 7200);
+
+      }
+      else {
+
+        console.log(userId)
+        frequency = JSON.parse(frequency)
+
+        if ((frequency.G[0][0] != month || frequency.G[0][1] < 6) && (frequency.G[1][0] != week || frequency.G[0][1] < 3) && (frequency.G[2][0] != day || frequency.G[0][1] != 1)) {
+          Logger.log('GLOBAL FREQ IS AVALABLE : ', userId)
+        }
+        else {
+          Logger.log('GLOBAL FREQ IS NOT AVALABLE : ', userId);
+          filteredUserIdsList = _.remove(filteredUserIdsList, userId);
+        }
+        if ((frequency[`${campaignType}`][0][0] != month || frequency[campaignType][0][1] < 6) && (frequency[campaignType][1][0] != week || frequency[campaignType][0][1] < 3) && (frequency[campaignType][2][0] != day || frequency[campaignType][0][1] != 1)) {
+          Logger.log('CAMPAIGN LEVEL FREQ IS AVALABLE : ', userId)
+        }
+        else {
+          Logger.log('CAMPAIGN LEVEL FREQ IS NOT AVALABLE FOR USER : ', userId)
+          filteredUserIdsList = _.remove(filteredUserIdsList, userId);
+        }
+      }
+    }
+
+    console.log('filteredUserIdsList:', filteredUserIdsList);
+  }
+
+
+
+
+
+
+
+
+
+
+  // async storeArrayAsList(key, array) {
+  //   await this.redis.rpush(key, ...array);
+  // }
+
+  // // Retrieving an array from Redis (List)
+  // async getArrayFromList(key) {
+  //   return await this.redis.lrange(key, 0, -1);
+  // }
+
+
+  // async storeArrayInRedis(userId: string, data: any[]): Promise<void> {
+  //   // Use the rpush method to push the entire array to a Redis list
+  //   await this.redis.rpush(userId, ...data);
+  // }
+
+
+  // async getArrayFromRedis(userId: string): Promise<any[]> {
+  //   // Use the lrange method to retrieve the entire array from the Redis list
+  //   const arrayData = await this.redis.lrange(userId, 0, -1);
+
+  //   // You may need to parse the array elements based on their data type
+  //   // For example, if your array contains JSON data:
+  //   return arrayData.map(JSON.parse);
+  // }
+
 }

@@ -2,6 +2,7 @@ import { Controller, Get, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppService } from './app.service';
 import { REDIS } from './modules/redis/redis.constants';
+import { CAMPAIGN_TYPE } from './services/constants';
 
 @Controller()
 export class AppController {
@@ -14,7 +15,9 @@ export class AppController {
   @Get()
   async getHello() {
     const userId = '1'
-    const campaignType = 'M';
+    let campaignType = 'MAIL';
+
+
     const currentDate = new Date();
     const startDate = new Date(currentDate.getFullYear(), 0, 1);
 
@@ -39,6 +42,9 @@ export class AppController {
       console.log('We reached maxium limit')
     }
 
+    const userIds = [1, 2]
+    campaignType = CAMPAIGN_TYPE.MAIL;
+    await this.appService.frequencyCheck(day, week, month, userIds, campaignType);
     return this.appService.getHello();
   }
 
