@@ -18,9 +18,9 @@ export class AppService {
 
   async globalFrequencyCheck(day, week, month, userId) {
 
-    let dayFrequency = await this.redis.get(`G_${userId}_${day}`)
-    let weekFrequency = await this.redis.get(`G_${userId}_${week}`)
-    let monthFrequency = await this.redis.get(`G_${userId}_${month}`)
+    let dayFrequency = await this.redis.get(`G_${userId}_D:${day}`)
+    let weekFrequency = await this.redis.get(`G_${userId}_W:${week}`)
+    let monthFrequency = await this.redis.get(`G_${userId}_M:${month}`)
 
     console.log(weekFrequency)
     console.log(`G_${userId}_${week}`)
@@ -64,10 +64,10 @@ export class AppService {
       let frequency = await this.redis.get(`${userId}`);
       if (!frequency) {
         frequency = {
-          "G": [[8, 6], [37, 0], [254, 0]], // this row represents global frequency
+          "G": [[8, 5], [37, 0], [254, 0]], // this row represents global frequency
           "P": [[8, 0], [37, 0], [254, 0]], // this row represents push frequency
-          "M": [[8, 0], [37, 0], [254, 0]], // this row represents mail frequency
-          "C": [[8, 0], [37, 0], [254, 0]]  // this row represents web frequency
+          "M": [[8, 5], [37, 3], [254, 0]], // this row represents mail frequency
+          "W": [[8, 0], [37, 0], [254, 0]]  // this row represents web frequency
         };
         await this.redis.set(`${userId}`, JSON.stringify(frequency), 'ex', 7200);
 
