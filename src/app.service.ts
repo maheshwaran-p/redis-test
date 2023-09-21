@@ -62,59 +62,50 @@ export class AppService {
 
 
 
+  async setFrequency(day, week, month, userId, campaignType) {
+    let frequency = await this.redis.get(`${userId}`);
 
-
-  async frequencyCheck(day, week, month, userIds, campaignType) {
-    let filteredUserIdsList = userIds;
-    for (const userId of userIds) {
-      let frequency = await this.redis.get(`${userId}`);
-      await this.redis.hmset(
-        userId,
-        'global',
-        JSON.stringify([[8, 5], [37, 0], [254, 0]]),
-        'push',
-        JSON.stringify([[8, 0], [37, 0], [254, 0]]),
-        'mail',
-        JSON.stringify([[8, 5], [37, 3], [254, 0]]),
-        'web',
-        JSON.stringify([[8, 0], [37, 0], [254, 0]])
-      );
-
-
-      if (!frequency) {
-        // frequency = {
-        //   0: [[8, 5], [37, 0], [254, 0]], // this row represents global frequency
-        //   1: [[8, 0], [37, 0], [254, 0]], // this row represents push frequency
-        //   2: [[8, 5], [37, 3], [254, 0]], // this row represents mail frequency
-        //   3: [[8, 0], [37, 0], [254, 0]]  // this row represents web frequency
-        // };
-        // await this.redis.set(`${userId}`, frequency, 'ex', 7200);
-
-      }
-      else {
-
-        console.log(userId)
-        frequency = JSON.parse(frequency)
-
-        if ((frequency.G[0][0] != month || frequency.G[0][1] < 6) && (frequency.G[1][0] != week || frequency.G[0][1] < 3) && (frequency.G[2][0] != day || frequency.G[0][1] != 1)) {
-          Logger.log('GLOBAL FREQ IS AVALABLE : ', userId)
-        }
-        else {
-          Logger.log('GLOBAL FREQ IS NOT AVALABLE : ', userId);
-          filteredUserIdsList = _.remove(filteredUserIdsList, userId);
-        }
-        if ((frequency[`${campaignType}`][0][0] != month || frequency[campaignType][0][1] < 6) && (frequency[campaignType][1][0] != week || frequency[campaignType][0][1] < 3) && (frequency[campaignType][2][0] != day || frequency[campaignType][0][1] != 1)) {
-          Logger.log('CAMPAIGN LEVEL FREQ IS AVALABLE : ', userId)
-        }
-        else {
-          Logger.log('CAMPAIGN LEVEL FREQ IS NOT AVALABLE FOR USER : ', userId)
-          filteredUserIdsList = _.remove(filteredUserIdsList, userId);
-        }
-      }
+    if (!frequency) {
+      frequency = {
+        "G": [[month, 0], [week, 0], [day, 0]],
+        "P": [[month, 0], [week, 0], [day, 0]],
+        "M": [[month, 0], [week, 0], [day, 0]],
+        "W": [[month, 0], [week, 0], [day, 0]]
+      };
     }
+    else {
+      frequency = JSON.parse(frequency);
+      frequency.G[0][1] += 1;
+      frequency.G[1][1] += 1;
+      frequency.G[2][1] += 1;
 
-    console.log('filteredUserIdsList:', filteredUserIdsList);
+      frequency[`${campaignType}`][0][1] += 1;
+      frequency[`${campaignType}`][1][1] += 1;
+      frequency[`${campaignType}`][2][1] += 1
+    }
+    await this.redis.set(`${userId}`, JSON.stringify(frequency), 'ex', 1117200);
+    return true;
+
   }
+
+  async frequencyCheck(day, week, month, userId, campaignType) {
+    let frequency = await this.redis.get(`${userId}`);
+    if (!frequency) {
+      return true;
+    }
+    else {
+      frequency = JSON.parse(frequency)
+      if (!(frequency.G[0][0] != month || frequency.G[0][1] < 6) && (frequency.G[1][0] != week || frequency.G[0][1] < 3) && (frequency.G[2][0] != day || frequency.G[0][1] != 1))
+        return false;
+
+      if (!(frequency[`${campaignType}`][0][0] != month || frequency[campaignType][0][1] < 6) && (frequency[campaignType][1][0] != week || frequency[campaignType][0][1] < 3) && (frequency[campaignType][2][0] != day || frequency[campaignType][0][1] != 1))
+        return false;
+    }
+    return true;
+  }
+
+
+
 
 
 
@@ -122,7 +113,7 @@ export class AppService {
   async recordNotification(
     userId: number,
     notificationType: string,
-  ): Promise<void> {
+  ): Promise<any> {
     const now = new Date();
     const today = format(now, 'yyyy-MM-dd');
     const currentWeek = format(now, 'w');
@@ -135,13 +126,14 @@ export class AppService {
     await this.redis.hincrby(userHashKey, `monthly:${currentMonth}`, 1);
 
     await this.redis.expire(userHashKey, 2592000); // Setting expiration time to 30 days
-    return await this.redis.hget(userHashKey, `monthly:${currentMonth}`)
+    await this.redis.hget(userHashKey, `monthly:${currentMonth}`)
+    return true;
   }
 
   async checkFrequencyCap(
     userId: number,
     notificationType: string,
-  ): Promise<boolean> {
+  ): Promise<any> {
     const now = new Date();
     const today = format(now, 'yyyy-MM-dd');
     const currentWeek = format(now, 'w');
