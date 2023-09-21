@@ -2,12 +2,18 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import e from 'express';
 import { REDIS } from './modules/redis/redis.constants';
 import * as _ from 'lodash';
+import { format } from 'date-fns';
 @Injectable()
 export class AppService {
+  private readonly frequencyCaps = {
+    email: { daily: 1, weekly: 2, monthly: 6 },
+    appPush: { daily: 2, weekly: 3, monthly: 10 },
+  }
 
   constructor(
     @Inject(REDIS)
-    private readonly redis: any
+    private readonly redis: any,
+
   ) {
 
   }
@@ -62,14 +68,27 @@ export class AppService {
     let filteredUserIdsList = userIds;
     for (const userId of userIds) {
       let frequency = await this.redis.get(`${userId}`);
+      await this.redis.hmset(
+        userId,
+        'global',
+        JSON.stringify([[8, 5], [37, 0], [254, 0]]),
+        'push',
+        JSON.stringify([[8, 0], [37, 0], [254, 0]]),
+        'mail',
+        JSON.stringify([[8, 5], [37, 3], [254, 0]]),
+        'web',
+        JSON.stringify([[8, 0], [37, 0], [254, 0]])
+      );
+
+
       if (!frequency) {
-        frequency = {
-          "G": [[8, 5], [37, 0], [254, 0]], // this row represents global frequency
-          "P": [[8, 0], [37, 0], [254, 0]], // this row represents push frequency
-          "M": [[8, 5], [37, 3], [254, 0]], // this row represents mail frequency
-          "W": [[8, 0], [37, 0], [254, 0]]  // this row represents web frequency
-        };
-        await this.redis.set(`${userId}`, JSON.stringify(frequency), 'ex', 7200);
+        // frequency = {
+        //   0: [[8, 5], [37, 0], [254, 0]], // this row represents global frequency
+        //   1: [[8, 0], [37, 0], [254, 0]], // this row represents push frequency
+        //   2: [[8, 5], [37, 3], [254, 0]], // this row represents mail frequency
+        //   3: [[8, 0], [37, 0], [254, 0]]  // this row represents web frequency
+        // };
+        // await this.redis.set(`${userId}`, frequency, 'ex', 7200);
 
       }
       else {
@@ -100,35 +119,58 @@ export class AppService {
 
 
 
+  async recordNotification(
+    userId: number,
+    notificationType: string,
+  ): Promise<void> {
+    const now = new Date();
+    const today = format(now, 'yyyy-MM-dd');
+    const currentWeek = format(now, 'w');
+    const currentMonth = format(now, 'M');
 
+    const userHashKey = `${userId}:${notificationType}`;
 
+    await this.redis.hincrby(userHashKey, `daily:${today}`, 1);
+    await this.redis.hincrby(userHashKey, `weekly:${currentWeek}`, 1);
+    await this.redis.hincrby(userHashKey, `monthly:${currentMonth}`, 1);
 
+    await this.redis.expire(userHashKey, 2592000); // Setting expiration time to 30 days
+    return await this.redis.hget(userHashKey, `monthly:${currentMonth}`)
+  }
 
+  async checkFrequencyCap(
+    userId: number,
+    notificationType: string,
+  ): Promise<boolean> {
+    const now = new Date();
+    const today = format(now, 'yyyy-MM-dd');
+    const currentWeek = format(now, 'w');
+    const currentMonth = format(now, 'M');
 
+    const userHashKey = `${userId}:${notificationType}`;
 
-  // async storeArrayAsList(key, array) {
-  //   await this.redis.rpush(key, ...array);
-  // }
+    const dailyCount = await this.redis.hget(userHashKey, `daily:${today}`);
+    const weeklyCount = await this.redis.hget(
+      userHashKey,
+      `weekly:${currentWeek}`,
+    );
+    const monthlyCount = await this.redis.hget(
+      userHashKey,
+      `monthly:${currentMonth}`,
+    );
 
-  // // Retrieving an array from Redis (List)
-  // async getArrayFromList(key) {
-  //   return await this.redis.lrange(key, 0, -1);
-  // }
+    if (dailyCount >= this.frequencyCaps[notificationType].daily) {
+      return false;
+    }
+    if (weeklyCount > this.frequencyCaps[notificationType].weekly) {
+      return false;
+    }
+    if (monthlyCount > this.frequencyCaps[notificationType].monthly) {
+      return false;
+    }
 
+    return true;
+  }
 
-  // async storeArrayInRedis(userId: string, data: any[]): Promise<void> {
-  //   // Use the rpush method to push the entire array to a Redis list
-  //   await this.redis.rpush(userId, ...data);
-  // }
-
-
-  // async getArrayFromRedis(userId: string): Promise<any[]> {
-  //   // Use the lrange method to retrieve the entire array from the Redis list
-  //   const arrayData = await this.redis.lrange(userId, 0, -1);
-
-  //   // You may need to parse the array elements based on their data type
-  //   // For example, if your array contains JSON data:
-  //   return arrayData.map(JSON.parse);
-  // }
 
 }

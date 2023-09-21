@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AppService } from './app.service';
 import { REDIS } from './modules/redis/redis.constants';
 import { CAMPAIGN_TYPE } from './services/constants';
-
+import { format } from 'date-fns';
 @Controller()
 export class AppController {
   constructor(
@@ -17,7 +17,6 @@ export class AppController {
     const userId = '1'
     let campaignType = 'MAIL';
 
-
     const currentDate = new Date();
     const startDate = new Date(currentDate.getFullYear(), 0, 1);
 
@@ -27,20 +26,20 @@ export class AppController {
 
     // approach 1
     // Global frequency check 
-    let globalCheck = await this.appService.globalFrequencyCheck(day, week, month, userId)
+    // let globalCheck = await this.appService.globalFrequencyCheck(day, week, month, userId)
 
     // Campaign level frequnc check
-    let campaignCheck = await this.appService.campaignFrequencyCheck(day, week, month, userId, campaignType)
+    // let campaignCheck = await this.appService.campaignFrequencyCheck(day, week, month, userId, campaignType)
 
 
 
 
-    if (globalCheck && campaignCheck) {
-      console.log('WOW. now we can send mail')
-    }
-    else {
-      console.log('We reached maxium limit')
-    }
+    // if (globalCheck && campaignCheck) {
+    //   console.log('WOW. now we can send mail')
+    // }
+    // else {
+    //   console.log('We reached maxium limit')
+    // }
 
     const userIds = [1, 2]
     campaignType = CAMPAIGN_TYPE.MAIL;
@@ -48,5 +47,16 @@ export class AppController {
     return this.appService.getHello();
   }
 
+
+  @Get('/check')
+  async check() {
+    console.log('check')
+    return this.appService.checkFrequencyCap(130, 'email')
+  }
+  @Get('/set')
+  async increment() {
+    console.log('set')
+    return this.appService.recordNotification(130, 'email')
+  }
 
 }
